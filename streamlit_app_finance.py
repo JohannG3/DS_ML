@@ -1,4 +1,4 @@
-import yfinance as yf
+import yfinance as yt
 import streamlit as st
 import pandas as pd
 
