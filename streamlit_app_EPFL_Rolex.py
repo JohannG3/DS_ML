@@ -1,26 +1,29 @@
 import streamlit as st
+import requests
 from transformers import CamembertTokenizer, CamembertForSequenceClassification
 import torch
-import requests
-from io import BytesIO
 from nltk.corpus import wordnet
 import nltk
+from io import BytesIO
 
 nltk.download('wordnet')
 
-# URL du modèle
-MODEL_URL = "https://github.com/JohannG3/DS_ML/raw/main/camembert_model_full.pth"
+# URL of the model on GitHub
+MODEL_URL = "https://github.com/JohannG3/DS_ML/blob/main/camembert_model_full.pth?raw=true"
 
-# Charger le modèle et le tokenizer
 @st.cache(allow_output_mutation=True)
 def load_model():
+    # Download the model
     response = requests.get(MODEL_URL)
-    model_file = BytesIO(response.content)
-    model = CamembertForSequenceClassification.from_pretrained(model_file)
-    tokenizer = CamembertTokenizer.from_pretrained('camembert-base')
-    return model, tokenizer
+    model_path = BytesIO(response.content)
+    # Load the model
+    model = CamembertForSequenceClassification.from_pretrained(model_path)
+    return model
 
-model, tokenizer = load_model()
+# Initialize the tokenizer
+tokenizer = CamembertTokenizer.from_pretrained('camembert-base')
+
+model = load_model()
 
 def predict_difficulty(text):
     inputs = tokenizer(text, return_tensors="pt")
