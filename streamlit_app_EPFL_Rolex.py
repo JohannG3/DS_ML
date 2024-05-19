@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 from io import BytesIO
 import torch
-import torch.nn as nn
+from torch import nn
 from transformers import AutoTokenizer, CamembertForSequenceClassification
 
 class CustomCamembertForSequenceClassification(nn.Module):
@@ -14,7 +14,7 @@ class CustomCamembertForSequenceClassification(nn.Module):
 
     def forward(self, input_ids, attention_mask=None, labels=None):
         outputs = self.camembert(input_ids, attention_mask=attention_mask)
-        pooled_output = outputs.pooler_output
+        pooled_output = outputs[0][:, 0, :]  # Utilisation du premier token [CLS] pour classification
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
 
@@ -33,10 +33,9 @@ def load_model():
     # Download the model
     response = requests.get(MODEL_URL)
     model_path = BytesIO(response.content)
-    # Create an instance of the model
-    model = CustomCamembertForSequenceClassification('almanach/camembert-base', num_labels=your_num_labels, dropout_prob=0.1)
-    # Load the model weights
-    model.load_state_dict(torch.load(model_path))
+    model_path.seek(0)  # Rewind the BytesIO object
+    # Load the model
+    model = torch.load(model_path)
     model.eval()
     return model
 
@@ -46,8 +45,9 @@ tokenizer = AutoTokenizer.from_pretrained("almanach/camembert-base")
 def predict_difficulty(sentence):
     tokenized = tokenizer(sentence, return_tensors='pt', padding=True, truncation=True, max_length=128)
     with torch.no_grad():
-        logits = model(input_ids=tokenized['input_ids'], attention_mask=tokenized['attention_mask'])
-    prediction = torch.argmax(logits[1], dim=1)
+        outputs = model(**tokenized)
+        logits = outputs.logits
+    prediction = torch.argmax(logits, dim=1)
     return prediction.item()
 
 # Streamlit interface
@@ -56,4 +56,3 @@ sentence = st.text_input("Entrez une phrase en français:")
 if sentence:
     prediction = predict_difficulty(sentence)
     st.write(f"Le niveau de difficulté prédit est : {prediction}")
-
