@@ -3,13 +3,12 @@ import requests
 from io import BytesIO
 import torch
 from torch import nn
-from transformers import AutoTokenizer, CamembertConfig
+from transformers import AutoTokenizer, CamembertForSequenceClassification
 
-# Custom model class
 class CustomCamembertForSequenceClassification(nn.Module):
-    def __init__(self, config, num_labels, dropout_prob=0.1):
+    def __init__(self, model_name, num_labels, dropout_prob=0.1):
         super(CustomCamembertForSequenceClassification, self).__init__()
-        self.camembert = CamembertForSequenceClassification(CamembertConfig.from_pretrained(config, num_labels=num_labels))
+        self.camembert = CamembertForSequenceClassification.from_pretrained(model_name, num_labels=num_labels)
         self.dropout = nn.Dropout(dropout_prob)
         self.classifier = nn.Linear(self.camembert.config.hidden_size, num_labels)
 
@@ -26,34 +25,32 @@ class CustomCamembertForSequenceClassification(nn.Module):
 
         return (loss, logits) if loss is not None else (None, logits)
 
-# URL of the model on GitHub
-MODEL_URL = "https://github.com/JohannG3/DS_ML/blob/main/camembert_model_full.pth?raw=true"
+# Mapping IDs back to labels as shown in your dataset image
+id2label = {
+    0: 'C1', 1: 'A1', 2: 'B1', 3: 'B2', 4: 'A2', 5: 'C2'
+}
 
+# Load Model and Tokenizer
 @st.cache(allow_output_mutation=True)
 def load_model():
-    # Download the model
+    MODEL_URL = "https://github.com/JohannG3/DS_ML/blob/main/camembert_model_full.pth?raw=true"
     response = requests.get(MODEL_URL)
     model_path = BytesIO(response.content)
-    model_path.seek(0)  # Rewind the BytesIO object
-    # Load the model
     model = torch.load(model_path, map_location=torch.device('cpu'))
     model.eval()
     return model
 
-# Load and configure the model and tokenizer
 model = load_model()
 tokenizer = AutoTokenizer.from_pretrained("almanach/camembert-base")
 
-# Define label dictionary
-id2label = {0: 'Easy', 1: 'Medium', 2: 'Hard'}  # Update with your actual labels
-
+# Function to predict the difficulty level of a sentence
 def predict_difficulty(sentence):
     tokenized = tokenizer(sentence, return_tensors='pt', padding=True, truncation=True, max_length=128)
     with torch.no_grad():
         outputs = model(**tokenized)
-        logits = outputs.logits if hasattr(outputs, 'logits') else outputs[1]
-    prediction = torch.argmax(logits, dim=1)
-    return id2label[prediction.item()]
+        logits = outputs if isinstance(outputs, torch.Tensor) else outputs.logits
+    prediction = torch.argmax(logits, dim=1).item()
+    return id2label[prediction]
 
 # Streamlit interface
 st.title("Prédiction de la difficulté de la langue française")
