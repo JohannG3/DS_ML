@@ -35,7 +35,7 @@ def load_model():
     model_path = BytesIO(response.content)
     model_path.seek(0)  # Rewind the BytesIO object
     # Load the model
-    model = torch.load(model_path)
+    model = torch.load(model_path, map_location=torch.device('cpu'))
     model.eval()
     return model
 
